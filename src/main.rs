@@ -1,12 +1,24 @@
 use std::env;
-use std::fs;
 use std::process::Command;
 use std::io::{self, Write};
+use std::fs; 
+use std::path::Path;
 
 
 fn main() {
     let mut args: Vec<String> = env::args().collect();
+    println!("{}",&args[0]);
     args.remove(0);
+    let mut filename: String = args[0].clone();
+    if !filename.ends_with(".java") {
+        let temp = match_name_to_path(Path::new("."), &filename);
+        if temp != None {
+            filename = temp.unwrap()[12..].to_owned();
+        } else {
+            panic!("The file you entered as an argument is not in the exercises");
+        }
+    }
+
     let files_vector: Vec<String> = vec![String::from("Into"),
                                         String::from("HelloWorld"),
                                         String::from("Comments"),
@@ -46,7 +58,6 @@ fn main() {
                                         String::from("Enums"),
                                         String::from("Abstract"),
                                         String::from("Interface")];
-    let filename: String = args[0].clone();
     if done(&filename) {
         run(&filename);
     } else {
@@ -78,5 +89,21 @@ fn run(filename: &str) {
     io::stdout().write_all(&output.stdout).unwrap();
 }
 
+fn match_name_to_path(filename: &Path, name: &str) -> Option<String> {
+	for entry in fs::read_dir(filename).unwrap() {
+		let entry = entry.unwrap();
+		if entry.path().is_file() {
+			if entry.file_name().into_string().unwrap().contains(&name){
+				return Some(entry.file_name().into_string().unwrap());
+			}
+		} else {
+			let r = match_name_to_path(&entry.path(), &name);
+            if r != None {
+				return Some((entry.path().to_str().unwrap().to_string() + "/") + &r.unwrap());
+			}
+		}
+	}
+	None
+}
 
 
