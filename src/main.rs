@@ -99,8 +99,12 @@ fn match_name_to_path(filename: &Path, name: &str) -> Option<String> {
 		} else {
 			let r = match_name_to_path(&entry.path(), &name);
             if r != None {
-				return Some((entry.path().to_str().unwrap().to_string() + "/") + &r.unwrap());
-			}
+                if cfg!(target_os = "windows"){
+				    return Some((entry.path().to_str().unwrap().to_string() + "\\") + &r.unwrap());
+                } else {
+				    return Some((entry.path().to_str().unwrap().to_string() + "/") + &r.unwrap());
+                }
+            }
 		}
 	}
 	None
