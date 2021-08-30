@@ -2,35 +2,61 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path::Path;
-use std::process::Command;
+use std::process::{self,Command};
 
 fn main() {
     let args: Vec<String> = env::args().collect();
-    println!("{}", &args[0]);
+    let args_len = args.len();
+    if args_len < 2 {
+        // No command
+        eprintln!("There is no command identified. Use \"javalings help\" for help");
+        process::exit(1);
+    }
     let command = &args[1];
+    let mut filename: String;
+    
     if command == "list" {
-        list();
-    }
-    /*
-    let mut filename: String = args[1].clone();
-    if !filename.ends_with(".java") {
-        let temp = match_name_to_path(Path::new("."), &filename);
-        if temp != None {
-            filename = temp.unwrap()[12..].to_owned();
-        } else {
-            panic!("The file you entered as an argument is not in the exercises");
+        if args_len > 2 {
+            // Unrecognized argument
+            eprintln!("Unrecognized argument: {}", &args[2]);
+            process::exit(1);
         }
-    }
-    if !Path::new(&filename).is_file() {
-        panic!("{} is not a file in this directory, use it's name to check/run it",filename);
-    }
-
-    if done(&filename) {
+        list();
+    } else if command == "run" {
+        if args.len()< 3 {
+            // No file for the line command
+            eprintln!("There is no file identified. Use \"javalings help\" for help.");
+            process::exit(1);
+        } else if args.len()> 3 {
+            // Unrecognized argument
+            eprintln!("Unrecognized argument: {}", &args[3]);
+            process::exit(1);
+        }
+        filename = args[2].clone();
+        filename = check_file(filename);
         run(&filename);
+    } else if command == "verify" {
+        if args_len > 2 {
+            // Unrecognized argument
+            eprintln!("Unrecognized argument: {}", &args[2]);
+            process::exit(1);
+        }
+        verify();
+    } else if command == "watch" {
+        if args_len > 2 {
+            // Unrecognized argument
+            eprintln!("Unrecognized argument: {}", &args[2]);
+            process::exit(1);
+        }
+        for _i in 0..50 {
+            println!();
+        }
+        verify();
     } else {
-        println!("please finish your program");
+        // Wrong command
+        eprintln!("The  command identified. Use \"javalings help\" for help");
+        process::exit(1);
     }
-    */
 }
 
 fn done(filename: &str) -> bool {
@@ -57,10 +83,15 @@ fn run(filename: &str) {
             .output()
             .expect("failed to execute process")
     };
-    println!("The error file says:");
-    io::stderr().write_all(&output.stderr).unwrap();
-    println!("The output file says:");
-    io::stdout().write_all(&output.stdout).unwrap();
+    if !output.status.success(){
+        println!("The error file says:\n");
+        io::stderr().write_all(&output.stderr).unwrap();
+        println!("The output file says:\n");
+        io::stdout().write_all(&output.stdout).unwrap();
+    } else {
+        println!("The output file says:");
+        io::stdout().write_all(&output.stdout).unwrap();
+    }
 }
 
 fn match_name_to_path(filename: &Path, name: &str) -> Option<String> {
@@ -155,5 +186,55 @@ fn list() {
             println!("Pending");
         }
     }
-    println!("Progress: You completed {} / {} exercises ({} %).", counter as u8, get_files().len(), counter * 100.0 / (get_files().len() as f64));
+    println!("\nProgress: You completed {} / {} exercises ({} %).", counter as u8, get_files().len(), counter * 100.0 / (get_files().len() as f64));
+}
+
+fn check_file(mut filename: String) -> String{
+    if !filename.ends_with(".java") {
+        let temp = match_name_to_path(Path::new("."), &filename);
+        if temp != None {
+            filename = temp.unwrap()[12..].to_owned();
+        } else {
+            // The file doesn't exist
+            eprintln!("The file you entered as an argument is not in the exercises");
+            process::exit(1);
+        }
+    }
+    if !Path::new(&filename).is_file() {
+        // Unrecognized file
+        eprintln!("{} is not a file in this directory, use it's name to check/run it or use \"javalings help\" for help.",filename);
+        process::exit(1);
+    }
+    filename
+}
+
+fn verify() {
+    let files = get_files();
+    for file in files {
+        let filename: String = match_name_to_path(Path::new("."), &file).unwrap()[12..].to_owned();
+        let mut command: String = String::from("java ");
+        command.push_str(&filename);
+        let output = if cfg!(target_os = "windows") {
+            Command::new("cmd")
+                .args(&["/C", &command])
+                .output()
+                .expect("failed to execute process")
+        } else {
+            Command::new("sh")
+                .arg("-c")
+                .arg(&command)
+                .output()
+                .expect("failed to execute process")
+        };
+        if output.status.success() {
+            println!("Successfully ran {}", filename);
+        } else {
+            println!("Compiling of {} failed\n",filename);
+            println!("The error file says:\n");
+            io::stderr().write_all(&output.stderr).unwrap();
+            println!("The output file says:\n");
+            io::stdout().write_all(&output.stdout).unwrap();
+            process::exit(1);    
+        }
+    }
 }
